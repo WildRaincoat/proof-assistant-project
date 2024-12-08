@@ -298,3 +298,11 @@ let () =
      print_endline "Test case 3 failed"
    with Type_error ->
      print_endline "Test case 3 passed")
+
+(*1.8*)
+let and_comm =
+  Abs ("p", And (TVar "A", TVar "B"),  (* 输入类型是 A ∧ B *)
+       Pair (Snd (Var "p"), Fst (Var "p")))  (* 返回 B ∧ A *)
+
+let () =
+  print_endline (string_of_ty (infer_type [] and_comm))
