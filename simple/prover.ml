@@ -10,29 +10,59 @@ type var = string
 type ty =
   | TVar of tvar
   | Arrow of ty * ty
+  | And of ty * ty   
+  | Or of ty * ty     
+  | True              
+  | False            
+
 
 (*1.2*)
 type tm =
   | Var of var
-  | Abs of var * ty * tm  
-  | App of tm * tm        
+  | Abs of var * ty * tm
+  | App of tm * tm
+  | Pair of tm * tm        
+  | Fst of tm                 
+  | Snd of tm               
+  | Inl of tm * ty        
+  | Inr of tm * ty              
+  | Case of tm * (var * tm) * (var * tm)  
+  | Tru                      
+  | Fls                       
+  | Absurd of tm * ty         
+ 
 
 (* 1.3 字符串表示函数 *)
 (* string_of_ty: 将类型转换为字符串表示 *)
 let rec string_of_ty t =
   match t with
   | TVar a -> a
-  | Arrow (t1, t2) ->
-      "(" ^ string_of_ty t1 ^ " => " ^ string_of_ty t2 ^ ")"
+  | Arrow (t1, t2) -> "(" ^ string_of_ty t1 ^ " => " ^ string_of_ty t2 ^ ")"
+  | And (t1, t2) -> "(" ^ string_of_ty t1 ^ " ∧ " ^ string_of_ty t2 ^ ")"
+  | Or (t1, t2) -> "(" ^ string_of_ty t1 ^ " ∨ " ^ string_of_ty t2 ^ ")"
+  | True -> "⊤"
+  | False -> "⊥"
+
 
 (* string_of_tm: 将λ项转换为字符串表示 *)
 let rec string_of_tm t =
   match t with
   | Var x -> x
-  | Abs(x, ty, tm) ->
+  | Abs (x, ty, tm) ->
       "(fun (" ^ x ^ " : " ^ string_of_ty ty ^ ") -> " ^ string_of_tm tm ^ ")"
-  | App(tm1, tm2) ->
-      "(" ^ string_of_tm tm1 ^ " " ^ string_of_tm tm2 ^ ")"
+  | App (tm1, tm2) -> "(" ^ string_of_tm tm1 ^ " " ^ string_of_tm tm2 ^ ")"
+  | Pair (tm1, tm2) -> "(" ^ string_of_tm tm1 ^ ", " ^ string_of_tm tm2 ^ ")"
+  | Fst tm -> "(fst " ^ string_of_tm tm ^ ")"
+  | Snd tm -> "(snd " ^ string_of_tm tm ^ ")"
+  | Inl (tm, ty) -> "(inl " ^ string_of_tm tm ^ " : " ^ string_of_ty ty ^ ")"
+  | Inr (tm, ty) -> "(inr " ^ string_of_tm tm ^ " : " ^ string_of_ty ty ^ ")"
+  | Case (tm, (x, tm1), (y, tm2)) ->
+      "(case " ^ string_of_tm tm ^ " of inl " ^ x ^ " => " ^ string_of_tm tm1 ^
+      " | inr " ^ y ^ " => " ^ string_of_tm tm2 ^ ")"
+  | Tru -> "true"
+  | Fls -> "false"
+  | Absurd (tm, ty) -> "(absurd " ^ string_of_tm tm ^ " : " ^ string_of_ty ty ^ ")"
+
 
 (* 测试示例 *)
 let () =
@@ -76,7 +106,7 @@ exception Type_error
       | _ -> raise Type_error) *)
 (*1.6*)
 (* Type inference and checking function. *)
-let rec infer_type (ctx: context) (t: tm) : ty =
+(* let rec infer_type (ctx: context) (t: tm) : ty =
   match t with
   | Var x -> (
       try
@@ -94,7 +124,70 @@ let rec infer_type (ctx: context) (t: tm) : ty =
       | Arrow (ty_arg, ty_res) ->
           if ty_arg = ty_t2 then ty_res
           else raise Type_error
+      | _ -> raise Type_error) *)
+    
+(*1.7*)
+let rec infer_type (ctx: context) (t: tm) : ty =
+  match t with
+  | Var x -> (
+      try List.assoc x ctx
+      with Not_found -> raise Type_error
+    )
+  | Abs (x, ty_x, t_body) ->
+      let ctx' = (x, ty_x) :: ctx in
+      let ty_body = infer_type ctx' t_body in
+      Arrow (ty_x, ty_body)
+  | App (t1, t2) ->
+      let ty_t1 = infer_type ctx t1 in
+      let ty_t2 = infer_type ctx t2 in
+      (match ty_t1 with
+      | Arrow (ty_arg, ty_res) ->
+          if ty_arg = ty_t2 then ty_res
+          else raise Type_error
       | _ -> raise Type_error)
+  | Pair (t1, t2) ->
+      let ty_t1 = infer_type ctx t1 in
+      let ty_t2 = infer_type ctx t2 in
+      And (ty_t1, ty_t2)
+  | Fst t ->
+      (match infer_type ctx t with
+      | And (ty1, _) -> ty1
+      | _ -> raise Type_error)
+  | Snd t ->
+      (match infer_type ctx t with
+      | And (_, ty2) -> ty2
+      | _ -> raise Type_error)
+  | Inl (t, ty) ->
+      let ty_t = infer_type ctx t in
+      (match ty with
+      | Or (ty_l, _) ->
+          if ty_t = ty_l then ty
+          else raise Type_error
+      | _ -> raise Type_error)
+  | Inr (t, ty) ->
+      let ty_t = infer_type ctx t in
+      (match ty with
+      | Or (_, ty_r) ->
+          if ty_t = ty_r then ty
+          else raise Type_error
+      | _ -> raise Type_error)
+  | Case (t, (x, t1), (y, t2)) ->
+      (match infer_type ctx t with
+      | Or (ty_l, ty_r) ->
+          let ctx1 = (x, ty_l) :: ctx in
+          let ctx2 = (y, ty_r) :: ctx in
+          let ty_t1 = infer_type ctx1 t1 in
+          let ty_t2 = infer_type ctx2 t2 in
+          if ty_t1 = ty_t2 then ty_t1
+          else raise Type_error
+      | _ -> raise Type_error)
+  | Tru -> True
+  | Fls -> False
+  | Absurd (t, ty) ->
+      (match infer_type ctx t with
+      | False -> ty
+      | _ -> raise Type_error)
+
 
 
 let () =
@@ -132,6 +225,54 @@ let rec check_type (ctx: context) (t: tm) (expected_ty: ty) : unit =
           check_type ctx t1 (Arrow (inferred_t2_ty, ty_res));
           if ty_arg <> inferred_t2_ty then raise Type_error
       | _ -> raise Type_error)
+  | Pair (t1, t2) ->
+      (match expected_ty with
+      | And (ty1, ty2) ->
+          check_type ctx t1 ty1;
+          check_type ctx t2 ty2
+      | _ -> raise Type_error)
+  | Fst t ->
+      let inferred_ty = infer_type ctx t in
+      (match inferred_ty with
+      | And (ty1, _) ->
+          if ty1 <> expected_ty then raise Type_error
+      | _ -> raise Type_error)
+  | Snd t ->
+      let inferred_ty = infer_type ctx t in
+      (match inferred_ty with
+      | And (_, ty2) ->
+          if ty2 <> expected_ty then raise Type_error
+      | _ -> raise Type_error)
+  | Inl (t, _ty) ->
+      let inferred_ty = infer_type ctx t in
+      (match expected_ty with
+      | Or (ty_l, _) ->
+          if inferred_ty <> ty_l then raise Type_error
+      | _ -> raise Type_error)
+  | Inr (t, _ty) ->
+      let inferred_ty = infer_type ctx t in
+      (match expected_ty with
+      | Or (_, ty_r) ->
+          if inferred_ty <> ty_r then raise Type_error
+      | _ -> raise Type_error)
+  | Case (t, (x, tm1), (y, tm2)) ->
+      (match infer_type ctx t with
+      | Or (ty_l, ty_r) ->
+          let ctx1 = (x, ty_l) :: ctx in
+          let ctx2 = (y, ty_r) :: ctx in
+          check_type ctx1 tm1 expected_ty;
+          check_type ctx2 tm2 expected_ty
+      | _ -> raise Type_error)
+  | Tru ->
+      if expected_ty <> True then raise Type_error
+  | Fls ->
+      if expected_ty <> False then raise Type_error
+  | Absurd (t, _ty) ->
+      let inferred_ty = infer_type ctx t in
+      (match inferred_ty with
+      | False -> ()
+      | _ -> raise Type_error)
+
 
 let () =
   let ctx = [] in
