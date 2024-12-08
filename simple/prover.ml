@@ -329,3 +329,16 @@ let or_comm =
 (* 测试 (A ∨ B) ⇒ (B ∨ A) *)
 let () =
   print_endline (string_of_ty (infer_type [] or_comm))
+
+(*1.11*)
+(* 定义 (A ∧ (A ⇒ ⊥)) ⇒ B 的项 *)
+let falsity_implies_b =
+  Abs ("p", And (TVar "A", Arrow (TVar "A", False)),  (* 输入类型 A ∧ (A ⇒ ⊥) *)
+       Absurd (
+         App (Snd (Var "p"), Fst (Var "p")),         (* 应用 A ⇒ ⊥ 到 A 得到 ⊥ *)
+         TVar "B"))                                 (* 从 ⊥ 推导出 B *)
+
+(* 测试 (A ∧ (A ⇒ ⊥)) ⇒ B *)
+let () =
+  print_endline (string_of_ty (infer_type [] falsity_implies_b))
+
