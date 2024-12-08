@@ -306,3 +306,15 @@ let and_comm =
 
 let () =
   print_endline (string_of_ty (infer_type [] and_comm))
+
+(*1.9*)
+(* 定义 (⊤ ⇒ A) ⇒ A 的项 *)
+let truth_implies_a =
+  Abs ("f", Arrow (True, TVar "A"),  (* 输入类型为 ⊤ ⇒ A *)
+       App (Var "f", Tru))           (* 应用 f 到常量 Tru *)
+
+(* 测试 (⊤ ⇒ A) ⇒ A *)
+let () =
+  print_endline (string_of_ty (infer_type [] truth_implies_a))
+
+(*1.10*)
