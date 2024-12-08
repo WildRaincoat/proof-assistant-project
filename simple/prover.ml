@@ -158,29 +158,30 @@ let rec infer_type (ctx: context) (t: tm) : ty =
       | And (_, ty2) -> ty2
       | _ -> raise Type_error)
   | Inl (t, ty) ->
-      let ty_t = infer_type ctx t in
-      (match ty with
-      | Or (ty_l, _) ->
-          if ty_t = ty_l then ty
-          else raise Type_error
-      | _ -> raise Type_error)
+    let ty_t = infer_type ctx t in
+    (match ty with
+    | Or (ty_l, _) ->
+        if ty_t = ty_l then ty
+        else raise Type_error
+    | _ -> raise Type_error)
   | Inr (t, ty) ->
-      let ty_t = infer_type ctx t in
-      (match ty with
-      | Or (_, ty_r) ->
-          if ty_t = ty_r then ty
-          else raise Type_error
-      | _ -> raise Type_error)
+    let ty_t = infer_type ctx t in
+    (match ty with
+    | Or (_, ty_r) ->
+        if ty_t = ty_r then ty
+        else raise Type_error
+    | _ -> raise Type_error)
+
   | Case (t, (x, t1), (y, t2)) ->
-      (match infer_type ctx t with
-      | Or (ty_l, ty_r) ->
-          let ctx1 = (x, ty_l) :: ctx in
-          let ctx2 = (y, ty_r) :: ctx in
-          let ty_t1 = infer_type ctx1 t1 in
-          let ty_t2 = infer_type ctx2 t2 in
-          if ty_t1 = ty_t2 then ty_t1
-          else raise Type_error
-      | _ -> raise Type_error)
+    (match infer_type ctx t with
+    | Or (ty_l, ty_r) ->
+        let ctx1 = (x, ty_l) :: ctx in
+        let ctx2 = (y, ty_r) :: ctx in
+        let ty_t1 = infer_type ctx1 t1 in
+        let ty_t2 = infer_type ctx2 t2 in
+        if ty_t1 = ty_t2 then ty_t1
+        else raise Type_error
+    | _ -> raise Type_error)
   | Tru -> True
   | Fls -> False
   | Absurd (t, ty) ->
@@ -318,3 +319,13 @@ let () =
   print_endline (string_of_ty (infer_type [] truth_implies_a))
 
 (*1.10*)
+(* 定义 (A ∨ B) ⇒ (B ∨ A) 的项 *)
+let or_comm =
+  Abs ("p", Or (TVar "A", TVar "B"),            (* 输入类型 A ∨ B *)
+       Case (Var "p",                          (* 模式匹配 p *)
+             ("x", Inr (Var "x", Or (TVar "B", TVar "A"))),  (* 左注入转右注入 *)
+             ("y", Inl (Var "y", Or (TVar "B", TVar "A"))))) (* 右注入转左注入 *)
+
+(* 测试 (A ∨ B) ⇒ (B ∨ A) *)
+let () =
+  print_endline (string_of_ty (infer_type [] or_comm))
