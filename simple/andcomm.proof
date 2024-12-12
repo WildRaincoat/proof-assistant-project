@@ -1,0 +1,4 @@
+A /\ B => B /\ A
+intro x
+fst x
+snd x
