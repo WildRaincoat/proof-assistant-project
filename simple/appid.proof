@@ -1,0 +1,4 @@
+((A => A) => B) => B
+intro f
+elim f
+exact (fun (x : A) -> x)

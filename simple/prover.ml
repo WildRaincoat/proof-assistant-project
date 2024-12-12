@@ -414,16 +414,20 @@ let rec prove env a =
     c, a
   in
   match cmd with
-  | "intro" ->
-     (
-       match a with
-       | Imp (a, b) ->
-          if arg = "" then error "Please provide an argument for intro." else
+  | "intro" -> (
+      match a with
+      | Imp (a, b) ->
+          if arg = "" then error "Please provide an argument for intro."
+          else
             let x = arg in
             let t = prove ((x, a) :: env) b in
             Abs (x, a, t)
-       | _ -> error "Don't know how to introduce this."
-     )
+      | And (a, b) ->
+          let t1 = prove env a in
+          let t2 = prove env b in
+          Pair (t1, t2)
+      | _ -> error "Don't know how to introduce this."
+    )
   | "exact" ->
      let t = tm_of_string arg in
      if infer_type env t <> a then error "Not the right type."
@@ -440,6 +444,16 @@ let rec prove env a =
    let q = prove env (Imp(a', a)) in
    let p = prove env a' in
    App(q, p)
+  | "fst" ->
+   let t = tm_of_string arg in
+   (match infer_type env t with
+   | And (ty1, _) when ty1 = a -> Fst t
+   | _ -> error "Cannot eliminate: not a conjunction of the right form")
+  | "snd" ->
+   let t = tm_of_string arg in
+   (match infer_type env t with
+   | And (_, ty2) when ty2 = a -> Snd t
+   | _ -> error "Cannot eliminate: not a conjunction of the right form")
   | cmd -> error ("Unknown command: " ^ cmd)
 
 let () =
