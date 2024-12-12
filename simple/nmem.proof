@@ -1,0 +1,7 @@
+not (not (A \/ B)) => (A \/ B)
+intro x
+elim x
+left
+exact y
+right
+exact z

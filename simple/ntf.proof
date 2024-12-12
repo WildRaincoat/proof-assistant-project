@@ -1,0 +1,3 @@
+not T => _
+intro x
+exact x

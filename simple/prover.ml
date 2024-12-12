@@ -400,7 +400,7 @@ let string_of_sequent ((ctx, ty) : sequent) : string =
   let ty_str = string_of_ty ty in
   ctx_str ^ " ⊢ " ^ ty_str
 
-(* 2.3, 2.6 ,7,8,9 *)
+(* 2.3, 2.6 ,7,8,9,10 *)
 let rec prove env a =
   print_endline (string_of_sequent (env, a));
   print_string "? "; flush_all ();
@@ -438,6 +438,8 @@ let rec prove env a =
         let x = arg in
         let x_ty = List.assoc x env in
         match x_ty with
+        | False ->
+          Absurd (Var x, a) 
         | Or (a, b) ->
             let ctx_a = (x, a) :: env in
             let t_a = prove ctx_a a in

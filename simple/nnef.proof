@@ -1,0 +1,7 @@
+not (not (not A)) => not A
+intro x
+intro y
+elim x
+intro z
+elim z
+exact y
