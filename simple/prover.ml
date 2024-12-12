@@ -429,10 +429,17 @@ let rec prove env a =
      let t = tm_of_string arg in
      if infer_type env t <> a then error "Not the right type."
      else t
+  | "elim" ->
+     let t = tm_of_string arg in
+     (match infer_type env t with
+      | Imp (ty1, ty2) when ty2 = a ->
+         let u = prove env ty1 in
+         App (t, u)
+      | _ -> error "Cannot eliminate: not an implication of the right form")
   | cmd -> error ("Unknown command: " ^ cmd)
          
-let () =
-  (* Interactive proof entry *)
+  let () =
+  (* Interactive Prover *)
   print_endline "Please enter the formula to prove:";
   let a = input_line stdin in
   let a = ty_of_string a in
@@ -444,8 +451,8 @@ let () =
   print_string  "Typechecking... "; flush_all ();
   assert (infer_type [] t = a);
   print_endline "ok.";
-  
-  (* Testing string_of_ctx and string_of_sequent *)
+
+  (* Context and Sequent Test *)
   let ctx = [("x", Imp (TVar "A", TVar "B")); ("y", And (TVar "A", TVar "B")); ("Z", True)] in
   print_endline ("Context string: " ^ string_of_ctx ctx);
   let seq = (ctx, TVar "A") in
