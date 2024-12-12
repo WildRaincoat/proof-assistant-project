@@ -440,7 +440,7 @@ let rec prove env a =
          
   let () =
   (* Interactive Prover *)
-  print_endline "Please enter the formula to prove:";
+  (* print_endline "Please enter the formula to prove:";
   let a = input_line stdin in
   let a = ty_of_string a in
   print_endline "Let's prove it.";
@@ -450,10 +450,65 @@ let rec prove env a =
   print_endline (string_of_tm t);
   print_string  "Typechecking... "; flush_all ();
   assert (infer_type [] t = a);
-  print_endline "ok.";
+  print_endline "ok."; *)
 
   (* Context and Sequent Test *)
   let ctx = [("x", Imp (TVar "A", TVar "B")); ("y", And (TVar "A", TVar "B")); ("Z", True)] in
   print_endline ("Context string: " ^ string_of_ctx ctx);
   let seq = (ctx, TVar "A") in
   print_endline ("Sequent string: " ^ string_of_sequent seq)
+
+  (* 2.5 *)
+  let () =
+  (* 打开文件读取公式和命令 *)
+  let infile = open_in "app.proof" in
+  print_endline "Reading formula from file...";
+  let a = input_line infile in
+  let a = ty_of_string a in
+  print_endline "Let's prove it.";
+  
+  let rec prove_with_file env a =
+    print_endline (string_of_sequent (env, a));
+    print_string "? "; flush_all ();
+    try
+      let cmd = input_line infile in
+      let cmd, arg =
+        let n = try String.index cmd ' ' with Not_found -> String.length cmd in
+        let c = String.sub cmd 0 n in
+        let a = String.sub cmd n (String.length cmd - n) in
+        let a = String.trim a in
+        c, a
+      in
+      match cmd with
+      | "intro" ->
+         (match a with
+          | Imp (a, b) ->
+             if arg = "" then failwith "Please provide an argument for intro." else
+               let x = arg in
+               let t = prove_with_file ((x, a) :: env) b in
+               Abs (x, a, t)
+          | _ -> failwith "Don't know how to introduce this.")
+      | "exact" ->
+         let t = tm_of_string arg in
+         if infer_type env t <> a then failwith "Not the right type."
+         else t
+      | "elim" ->
+         let t = tm_of_string arg in
+         (match infer_type env t with
+          | Imp (ty1, ty2) when ty2 = a ->
+             let u = prove_with_file env ty1 in
+             App (t, u)
+          | _ -> failwith "Cannot eliminate: not an implication of the right form")
+      | cmd -> failwith ("Unknown command: " ^ cmd)
+    with End_of_file -> failwith "Unexpected end of file"
+  in
+  let t = prove_with_file [] a in
+  close_in infile;
+
+  (* 打印证明结果 *)
+  print_endline "done.";
+  print_endline "Proof term is";
+  print_endline (string_of_tm t);
+  print_string "Typechecking... "; flush_all ();
+  assert (infer_type [] t = a);
+  print_endline "ok.";
