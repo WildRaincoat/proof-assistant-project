@@ -400,7 +400,7 @@ let string_of_sequent ((ctx, ty) : sequent) : string =
   let ty_str = string_of_ty ty in
   ctx_str ^ " ⊢ " ^ ty_str
 
-(* 2.3 *)
+(* 2.3, 2.6 with fixed "cut" command *)
 let rec prove env a =
   print_endline (string_of_sequent (env, a));
   print_string "? "; flush_all ();
@@ -422,8 +422,7 @@ let rec prove env a =
             let x = arg in
             let t = prove ((x, a) :: env) b in
             Abs (x, a, t)
-       | _ ->
-          error "Don't know how to introduce this."
+       | _ -> error "Don't know how to introduce this."
      )
   | "exact" ->
      let t = tm_of_string arg in
@@ -436,11 +435,16 @@ let rec prove env a =
          let u = prove env ty1 in
          App (t, u)
       | _ -> error "Cannot eliminate: not an implication of the right form")
+  | "cut" ->
+   let a' = ty_of_string arg in
+   let q = prove env (Imp(a', a)) in
+   let p = prove env a' in
+   App(q, p)
   | cmd -> error ("Unknown command: " ^ cmd)
-         
-  let () =
+
+let () =
   (* Interactive Prover *)
-  (* print_endline "Please enter the formula to prove:";
+  print_endline "Please enter the formula to prove:";
   let a = input_line stdin in
   let a = ty_of_string a in
   print_endline "Let's prove it.";
@@ -450,7 +454,7 @@ let rec prove env a =
   print_endline (string_of_tm t);
   print_string  "Typechecking... "; flush_all ();
   assert (infer_type [] t = a);
-  print_endline "ok."; *)
+  print_endline "ok.";
 
   (* Context and Sequent Test *)
   let ctx = [("x", Imp (TVar "A", TVar "B")); ("y", And (TVar "A", TVar "B")); ("Z", True)] in
@@ -458,10 +462,11 @@ let rec prove env a =
   let seq = (ctx, TVar "A") in
   print_endline ("Sequent string: " ^ string_of_sequent seq)
 
+
   (* 2.5 *)
   let () =
-  (* 打开文件读取公式和命令 *)
-  let infile = open_in "app.proof" in
+  (* open files that to be proved *)
+  let infile = open_in "s.proof" in
   print_endline "Reading formula from file...";
   let a = input_line infile in
   let a = ty_of_string a in
@@ -499,6 +504,11 @@ let rec prove env a =
              let u = prove_with_file env ty1 in
              App (t, u)
           | _ -> failwith "Cannot eliminate: not an implication of the right form")
+      | "cut" ->
+        let a' = ty_of_string arg in
+        let q = prove env (Imp(a', a)) in
+        let p = prove env a' in
+        App(q, p)
       | cmd -> failwith ("Unknown command: " ^ cmd)
     with End_of_file -> failwith "Unexpected end of file"
   in
