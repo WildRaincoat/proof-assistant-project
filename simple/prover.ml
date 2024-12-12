@@ -415,48 +415,50 @@ let rec prove env a =
   in
   match cmd with
   | "intro" -> (
-    match a with
-    | Imp (a, b) ->
-        if arg = "" then error "Please provide an argument for intro."
-        else
-          let x = arg in
-          let t = prove ((x, a) :: env) b in
-          Abs (x, a, t)
-    | And (a, b) ->
-        let t1 = prove env a in
-        let t2 = prove env b in
-        Pair (t1, t2)
-    | True ->
-        Tru (* 返回真值常量 *)
-    | _ -> error "Don't know how to introduce this."
-)
+      match a with
+      | Imp (a, b) ->
+          if arg = "" then error "Please provide an argument for intro."
+          else
+            let x = arg in
+            let t = prove ((x, a) :: env) b in
+            Abs (x, a, t)
+      | And (a, b) ->
+          let t1 = prove env a in
+          let t2 = prove env b in
+          Pair (t1, t2)
+      | True -> Tru
+      | _ -> error "Don't know how to introduce this."
+    )
   | "exact" ->
-     let t = tm_of_string arg in
-     if infer_type env t <> a then error "Not the right type."
-     else t
-  | "elim" ->
-     let t = tm_of_string arg in
-     (match infer_type env t with
-      | Imp (ty1, ty2) when ty2 = a ->
-         let u = prove env ty1 in
-         App (t, u)
-      | _ -> error "Cannot eliminate: not an implication of the right form")
-  | "cut" ->
-   let a' = ty_of_string arg in
-   let q = prove env (Imp(a', a)) in
-   let p = prove env a' in
-   App(q, p)
-  | "fst" ->
-   let t = tm_of_string arg in
-   (match infer_type env t with
-   | And (ty1, _) when ty1 = a -> Fst t
-   | _ -> error "Cannot eliminate: not a conjunction of the right form")
-  | "snd" ->
-   let t = tm_of_string arg in
-   (match infer_type env t with
-   | And (_, ty2) when ty2 = a -> Snd t
-   | _ -> error "Cannot eliminate: not a conjunction of the right form")
+      let t = tm_of_string arg in
+      if infer_type env t <> a then error "Not the right type."
+      else t
+  | "elim" -> (
+      try
+        let x = arg in
+        let x_ty = List.assoc x env in
+        match x_ty with
+        | Or (a, b) ->
+            let ctx_a = (x, a) :: env in
+            let t_a = prove ctx_a a in
+            let ctx_b = (x, b) :: env in
+            let t_b = prove ctx_b b in
+            Case (Var x, (x, t_a), (x, t_b))
+        | _ -> error "Cannot eliminate: variable is not a disjunction."
+      with Not_found -> error "Variable not found in context."
+    )
+  | "left" -> (
+      match a with
+      | Or (a, _) -> let t = prove env a in Inl (t, a)
+      | _ -> error "Cannot apply left: goal is not a disjunction."
+    )
+  | "right" -> (
+      match a with
+      | Or (_, b) -> let t = prove env b in Inr (t, b)
+      | _ -> error "Cannot apply right: goal is not a disjunction."
+    )
   | cmd -> error ("Unknown command: " ^ cmd)
+
 
 let () =
   (* Interactive Prover *)

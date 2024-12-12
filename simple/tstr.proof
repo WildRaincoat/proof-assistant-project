@@ -1,0 +1,6 @@
+(T => A) => A
+intro f
+cut T
+intro x
+elim f
+exact x
