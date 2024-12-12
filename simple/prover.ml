@@ -387,3 +387,22 @@ let () =
       Printf.printf "the parsing of %S failed\n%!" s
   ) l
 
+(* 2.1 *)
+let string_of_ctx (ctx : context) : string =
+  let ctx_strings = List.map (fun (v, t) -> v ^ " : " ^ string_of_ty t) ctx in
+  String.concat ", " ctx_strings
+
+(* 2.2 *)
+type sequent = context * ty
+
+let string_of_sequent ((ctx, ty) : sequent) : string =
+  let ctx_str = string_of_ctx ctx in
+  let ty_str = string_of_ty ty in
+  ctx_str ^ " ⊢ " ^ ty_str
+
+let () =
+  let ctx = [("x", Imp (TVar "A", TVar "B")); ("y", And (TVar "A", TVar "B")); ("Z", True)] in
+  print_endline ("Context string: " ^ string_of_ctx ctx);
+  let seq = (ctx, TVar "A") in
+  print_endline ("Sequent string: " ^ string_of_sequent seq)
+
