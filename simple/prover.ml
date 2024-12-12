@@ -400,7 +400,7 @@ let string_of_sequent ((ctx, ty) : sequent) : string =
   let ty_str = string_of_ty ty in
   ctx_str ^ " ⊢ " ^ ty_str
 
-(* 2.3, 2.6 with fixed "cut" command *)
+(* 2.3, 2.6 ,7,8,9 *)
 let rec prove env a =
   print_endline (string_of_sequent (env, a));
   print_string "? "; flush_all ();
@@ -415,19 +415,21 @@ let rec prove env a =
   in
   match cmd with
   | "intro" -> (
-      match a with
-      | Imp (a, b) ->
-          if arg = "" then error "Please provide an argument for intro."
-          else
-            let x = arg in
-            let t = prove ((x, a) :: env) b in
-            Abs (x, a, t)
-      | And (a, b) ->
-          let t1 = prove env a in
-          let t2 = prove env b in
-          Pair (t1, t2)
-      | _ -> error "Don't know how to introduce this."
-    )
+    match a with
+    | Imp (a, b) ->
+        if arg = "" then error "Please provide an argument for intro."
+        else
+          let x = arg in
+          let t = prove ((x, a) :: env) b in
+          Abs (x, a, t)
+    | And (a, b) ->
+        let t1 = prove env a in
+        let t2 = prove env b in
+        Pair (t1, t2)
+    | True ->
+        Tru (* 返回真值常量 *)
+    | _ -> error "Don't know how to introduce this."
+)
   | "exact" ->
      let t = tm_of_string arg in
      if infer_type env t <> a then error "Not the right type."
