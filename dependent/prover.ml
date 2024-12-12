@@ -54,6 +54,14 @@ let rec to_string expr =
   | J (e1, e2, e3, e4, e5) -> 
       "(J " ^ to_string e1 ^ " " ^ to_string e2 ^ " " ^ to_string e3 ^ " " ^ to_string e4 ^ " " ^ to_string e5 ^ ")"
 
+(* 5.3 *)
+let id_counter = ref 0
+
+let fresh_var () =
+  let new_var = "x" ^ string_of_int !id_counter ^ "'" in
+  id_counter := !id_counter + 1; (* 增加计数器 *)
+  new_var
+
 (* 测试代码 *)
 let () =
   let expr_example = 
@@ -63,3 +71,9 @@ let () =
 
   let example_expr = Pi ("x", Type, Pi ("y", Var "x", Var "y")) in
   print_endline (string_of_expr example_expr)
+
+let () =
+  let var1 = fresh_var () in
+  let var2 = fresh_var () in
+  let var3 = fresh_var () in
+  Printf.printf "Generated variables: %s, %s, %s\n" var1 var2 var3;
