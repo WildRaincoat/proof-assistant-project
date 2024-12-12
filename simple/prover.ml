@@ -39,7 +39,6 @@ let () = Printexc.record_backtrace true
  
 
 (* 1.3 字符串表示函数 *)
-(* string_of_ty: 将类型转换为字符串表示 *)
 let rec string_of_ty t =
   match t with
   | TVar a -> a
@@ -50,7 +49,6 @@ let rec string_of_ty t =
   | False -> "⊥"
 
 
-(* string_of_tm: 将λ项转换为字符串表示 *)
 let rec string_of_tm t =
   match t with
   | Var x -> x
@@ -69,8 +67,6 @@ let rec string_of_tm t =
   | Fls -> "false"
   | Absurd (tm, ty) -> "(absurd " ^ string_of_tm tm ^ " : " ^ string_of_ty ty ^ ")"
 
-
-(* 测试示例 *)
 let () =
   let ty_example = Imp(Imp(TVar "A", TVar "B"), Imp(TVar "A", TVar "C")) in
   print_endline (string_of_ty ty_example);
@@ -308,56 +304,54 @@ let () =
 
 (*1.8*)
 let and_comm =
-  Abs ("p", And (TVar "A", TVar "B"),  (* 输入类型是 A ∧ B *)
-       Pair (Snd (Var "p"), Fst (Var "p")))  (* 返回 B ∧ A *)
+  Abs ("p", And (TVar "A", TVar "B"), 
+       Pair (Snd (Var "p"), Fst (Var "p"))) 
 
 let () =
   print_endline (string_of_ty (infer_type [] and_comm))
 
 (*1.9*)
-(* 定义 (⊤ ⇒ A) ⇒ A 的项 *)
+(*  (⊤ ⇒ A) ⇒ A  *)
 let truth_implies_a =
-  Abs ("f", Imp (True, TVar "A"),  (* 输入类型为 ⊤ ⇒ A *)
-       App (Var "f", Tru))           (* 应用 f 到常量 Tru *)
+  Abs ("f", Imp (True, TVar "A"), 
+       App (Var "f", Tru))         
 
-(* 测试 (⊤ ⇒ A) ⇒ A *)
+(*  (⊤ ⇒ A) ⇒ A *)
 let () =
   print_endline (string_of_ty (infer_type [] truth_implies_a))
 
 (*1.10*)
-(* 定义 (A ∨ B) ⇒ (B ∨ A) 的项 *)
 let or_comm =
-  Abs ("p", Or (TVar "A", TVar "B"),            (* 输入类型 A ∨ B *)
-       Case (Var "p",                          (* 模式匹配 p *)
-             ("x", Inr (Var "x", Or (TVar "B", TVar "A"))),  (* 左注入转右注入 *)
-             ("y", Inl (Var "y", Or (TVar "B", TVar "A"))))) (* 右注入转左注入 *)
+  Abs ("p", Or (TVar "A", TVar "B"),         
+       Case (Var "p",                         
+             ("x", Inr (Var "x", Or (TVar "B", TVar "A"))),  
+             ("y", Inl (Var "y", Or (TVar "B", TVar "A"))))) 
 
-(* 测试 (A ∨ B) ⇒ (B ∨ A) *)
+(*  (A ∨ B) ⇒ (B ∨ A) *)
 let () =
   print_endline (string_of_ty (infer_type [] or_comm))
 
 (*1.11*)
-(* 定义 (A ∧ (A ⇒ ⊥)) ⇒ B 的项 *)
 let falsity_implies_b =
-  Abs ("p", And (TVar "A", Imp (TVar "A", False)),  (* 输入类型 A ∧ (A ⇒ ⊥) *)
+  Abs ("p", And (TVar "A", Imp (TVar "A", False)),  
        Absurd (
-         App (Snd (Var "p"), Fst (Var "p")),         (* 应用 A ⇒ ⊥ 到 A 得到 ⊥ *)
-         TVar "B"))                                 (* 从 ⊥ 推导出 B *)
+         App (Snd (Var "p"), Fst (Var "p")),         
+         TVar "B"))                                
 
-(* 测试 (A ∧ (A ⇒ ⊥)) ⇒ B *)
+(* test (A ∧ (A ⇒ ⊥)) ⇒ B *)
 let () =
   print_endline (string_of_ty (infer_type [] falsity_implies_b))
 
-(* 测试类型解析与打印 *)
+
 let () =
   let l = [
     "A => B";
-    "A ⇒ B";      (* 如果您的lexer不支持'⇒',这行会报错或无法解析 *)
+    "A ⇒ B";      
     "A /\\ B";
-    "A ∧ B";       (* 同理，如果lexer不支持'∧'字符，需要修改lexer规则或使用ASCII符号 *)
+    "A ∧ B";      
     "T";
     "A \\/ B";
-    "A ∨ B";       (* 同理'∨'字符可能需要修改lexer或使用ASCII版'\\/' *)
+    "A ∨ B";       
     "_";
     "not A";
     "¬ A";
@@ -370,12 +364,12 @@ let () =
       Printf.printf "the parsing of %S failed\n%!" s
   ) l
 
-(* 测试项解析与打印 *)
+
 let () =
   let l = [
     "t u v";
     "fun (x : A) -> t";
-    "λ (x : A) → t";  (* 如果lexer不支持'λ'和'→'，需要改回fun/-> *)
+    "λ (x : A) → t";  
     "(t , u)";
     "fst(t)";
     "snd(t)";
