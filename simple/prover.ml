@@ -1,23 +1,29 @@
+open Expr
+
+let ty_of_string s = Parser.ty Lexer.token (Lexing.from_string s)
+
+let tm_of_string s = Parser.tm Lexer.token (Lexing.from_string s)
+
 let () = Printexc.record_backtrace true
 
 (** Type variables. *)
-type tvar = string
+(* type tvar = string *)
 
 (** Term variables. *)
-type var = string
+(* type var = string *)
 
 (** Types. *)
-type ty =
+(* type ty =
   | TVar of tvar
-  | Arrow of ty * ty
+  | Imp of ty * ty
   | And of ty * ty   
   | Or of ty * ty     
   | True              
-  | False            
+  | False             *)
 
 
 (*1.2*)
-type tm =
+(* type tm =
   | Var of var
   | Abs of var * ty * tm
   | App of tm * tm
@@ -29,7 +35,7 @@ type tm =
   | Case of tm * (var * tm) * (var * tm)  
   | Tru                      
   | Fls                       
-  | Absurd of tm * ty         
+  | Absurd of tm * ty          *)
  
 
 (* 1.3 字符串表示函数 *)
@@ -37,7 +43,7 @@ type tm =
 let rec string_of_ty t =
   match t with
   | TVar a -> a
-  | Arrow (t1, t2) -> "(" ^ string_of_ty t1 ^ " => " ^ string_of_ty t2 ^ ")"
+  | Imp (t1, t2) -> "(" ^ string_of_ty t1 ^ " => " ^ string_of_ty t2 ^ ")"
   | And (t1, t2) -> "(" ^ string_of_ty t1 ^ " ∧ " ^ string_of_ty t2 ^ ")"
   | Or (t1, t2) -> "(" ^ string_of_ty t1 ^ " ∨ " ^ string_of_ty t2 ^ ")"
   | True -> "⊤"
@@ -66,11 +72,11 @@ let rec string_of_tm t =
 
 (* 测试示例 *)
 let () =
-  let ty_example = Arrow(Arrow(TVar "A", TVar "B"), Arrow(TVar "A", TVar "C")) in
+  let ty_example = Imp(Imp(TVar "A", TVar "B"), Imp(TVar "A", TVar "C")) in
   print_endline (string_of_ty ty_example);
   
   let tm_example =
-    Abs("f", Arrow(TVar "A", TVar "B"),
+    Abs("f", Imp(TVar "A", TVar "B"),
         Abs("x", TVar "A",
             App(Var "f", Var "x")))
   in
@@ -95,12 +101,12 @@ exception Type_error
   | Abs (x, ty_x, t_body) ->
       let ctx' = (x, ty_x) :: ctx in (* 扩展上下文 *)
       let ty_body = infer_type ctx' t_body in
-      Arrow (ty_x, ty_body) (* 函数类型 *)
+      Imp (ty_x, ty_body) (* 函数类型 *)
   | App (t1, t2) ->
       let ty_t1 = infer_type ctx t1 in
       let ty_t2 = infer_type ctx t2 in
       (match ty_t1 with
-      | Arrow (ty_arg, ty_res) ->
+      | Imp (ty_arg, ty_res) ->
           if ty_arg = ty_t2 then ty_res
           else raise Type_error
       | _ -> raise Type_error) *)
@@ -116,12 +122,12 @@ exception Type_error
   | Abs (x, ty_x, t_body) ->
       let ctx' = (x, ty_x) :: ctx in (* 扩展上下文 *)
       let ty_body = infer_type ctx' t_body in
-      Arrow (ty_x, ty_body) (* 函数类型 *)
+      Imp (ty_x, ty_body) (* 函数类型 *)
   | App (t1, t2) ->
       let ty_t1 = infer_type ctx t1 in
       let ty_t2 = infer_type ctx t2 in
       (match ty_t1 with
-      | Arrow (ty_arg, ty_res) ->
+      | Imp (ty_arg, ty_res) ->
           if ty_arg = ty_t2 then ty_res
           else raise Type_error
       | _ -> raise Type_error) *)
@@ -136,12 +142,12 @@ let rec infer_type (ctx: context) (t: tm) : ty =
   | Abs (x, ty_x, t_body) ->
       let ctx' = (x, ty_x) :: ctx in
       let ty_body = infer_type ctx' t_body in
-      Arrow (ty_x, ty_body)
+      Imp (ty_x, ty_body)
   | App (t1, t2) ->
       let ty_t1 = infer_type ctx t1 in
       let ty_t2 = infer_type ctx t2 in
       (match ty_t1 with
-      | Arrow (ty_arg, ty_res) ->
+      | Imp (ty_arg, ty_res) ->
           if ty_arg = ty_t2 then ty_res
           else raise Type_error
       | _ -> raise Type_error)
@@ -194,8 +200,8 @@ let rec infer_type (ctx: context) (t: tm) : ty =
 let () =
   let ctx = [] in
   let term =
-    Abs ("f", Arrow (TVar "A", TVar "B"),
-         Abs ("g", Arrow (TVar "B", TVar "C"),
+    Abs ("f", Imp (TVar "A", TVar "B"),
+         Abs ("g", Imp (TVar "B", TVar "C"),
               Abs ("x", TVar "A",
                    App (Var "g", App (Var "f", Var "x")))))
   in
@@ -213,7 +219,7 @@ let rec check_type (ctx: context) (t: tm) (expected_ty: ty) : unit =
     )
   | Abs (x, ty_x, t_body) ->
       (match expected_ty with
-      | Arrow (ty_arg, ty_res) ->
+      | Imp (ty_arg, ty_res) ->
           if ty_arg = ty_x then
             let ctx' = (x, ty_x) :: ctx in
             check_type ctx' t_body ty_res
@@ -222,8 +228,8 @@ let rec check_type (ctx: context) (t: tm) (expected_ty: ty) : unit =
   | App (t1, t2) ->
       let inferred_t2_ty = infer_type ctx t2 in
       (match expected_ty with
-      | Arrow (ty_arg, ty_res) ->
-          check_type ctx t1 (Arrow (inferred_t2_ty, ty_res));
+      | Imp (ty_arg, ty_res) ->
+          check_type ctx t1 (Imp (inferred_t2_ty, ty_res));
           if ty_arg <> inferred_t2_ty then raise Type_error
       | _ -> raise Type_error)
   | Pair (t1, t2) ->
@@ -280,14 +286,14 @@ let () =
   (* Test case 1: λ(x: A). x has type A → A *)
   let t1 = Abs ("x", TVar "A", Var "x") in
   (try
-     check_type ctx t1 (Arrow (TVar "A", TVar "A"));
+     check_type ctx t1 (Imp (TVar "A", TVar "A"));
      print_endline "Test case 1 passed"
    with Type_error ->
      print_endline "Test case 1 failed");
 
   (* Test case 2: λ(x: A). x does not have type B → B *)
   (try
-     check_type ctx t1 (Arrow (TVar "B", TVar "B"));
+     check_type ctx t1 (Imp (TVar "B", TVar "B"));
      print_endline "Test case 2 failed"
    with Type_error ->
      print_endline "Test case 2 passed");
@@ -311,7 +317,7 @@ let () =
 (*1.9*)
 (* 定义 (⊤ ⇒ A) ⇒ A 的项 *)
 let truth_implies_a =
-  Abs ("f", Arrow (True, TVar "A"),  (* 输入类型为 ⊤ ⇒ A *)
+  Abs ("f", Imp (True, TVar "A"),  (* 输入类型为 ⊤ ⇒ A *)
        App (Var "f", Tru))           (* 应用 f 到常量 Tru *)
 
 (* 测试 (⊤ ⇒ A) ⇒ A *)
@@ -333,7 +339,7 @@ let () =
 (*1.11*)
 (* 定义 (A ∧ (A ⇒ ⊥)) ⇒ B 的项 *)
 let falsity_implies_b =
-  Abs ("p", And (TVar "A", Arrow (TVar "A", False)),  (* 输入类型 A ∧ (A ⇒ ⊥) *)
+  Abs ("p", And (TVar "A", Imp (TVar "A", False)),  (* 输入类型 A ∧ (A ⇒ ⊥) *)
        Absurd (
          App (Snd (Var "p"), Fst (Var "p")),         (* 应用 A ⇒ ⊥ 到 A 得到 ⊥ *)
          TVar "B"))                                 (* 从 ⊥ 推导出 B *)
@@ -341,4 +347,49 @@ let falsity_implies_b =
 (* 测试 (A ∧ (A ⇒ ⊥)) ⇒ B *)
 let () =
   print_endline (string_of_ty (infer_type [] falsity_implies_b))
+
+(* 测试类型解析与打印 *)
+let () =
+  let l = [
+    "A => B";
+    "A ⇒ B";      (* 如果您的lexer不支持'⇒',这行会报错或无法解析 *)
+    "A /\\ B";
+    "A ∧ B";       (* 同理，如果lexer不支持'∧'字符，需要修改lexer规则或使用ASCII符号 *)
+    "T";
+    "A \\/ B";
+    "A ∨ B";       (* 同理'∨'字符可能需要修改lexer或使用ASCII版'\\/' *)
+    "_";
+    "not A";
+    "¬ A";
+  ] in
+  List.iter (fun s ->
+    try
+      let parsed_ty = ty_of_string s in
+      Printf.printf "the parsing of %S is %s\n%!" s (string_of_ty parsed_ty)
+    with _ ->
+      Printf.printf "the parsing of %S failed\n%!" s
+  ) l
+
+(* 测试项解析与打印 *)
+let () =
+  let l = [
+    "t u v";
+    "fun (x : A) -> t";
+    "λ (x : A) → t";  (* 如果lexer不支持'λ'和'→'，需要改回fun/-> *)
+    "(t , u)";
+    "fst(t)";
+    "snd(t)";
+    "()";
+    "case t of x -> u | y -> v";
+    "left(t,B)";
+    "right(A,t)";
+    "absurd(t,A)";
+  ] in
+  List.iter (fun s ->
+    try
+      let parsed_tm = tm_of_string s in
+      Printf.printf "the parsing of %S is %s\n%!" s (string_of_tm parsed_tm)
+    with _ ->
+      Printf.printf "the parsing of %S failed\n%!" s
+  ) l
 
