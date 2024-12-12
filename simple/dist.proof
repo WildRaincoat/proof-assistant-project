@@ -1,0 +1,13 @@
+(A /\ (B \/ C)) => ((A /\ B) \/ (A /\ C))
+intro x
+elim x
+fst x
+elim snd x
+left
+pair
+exact fst x
+exact x
+right
+pair
+exact fst x
+exact x
