@@ -444,7 +444,7 @@ let rec prove env a =
 
 let () =
   (* Interactive Prover *)
-  print_endline "Please enter the formula to prove:";
+  (* print_endline "Please enter the formula to prove:";
   let a = input_line stdin in
   let a = ty_of_string a in
   print_endline "Let's prove it.";
@@ -454,7 +454,7 @@ let () =
   print_endline (string_of_tm t);
   print_string  "Typechecking... "; flush_all ();
   assert (infer_type [] t = a);
-  print_endline "ok.";
+  print_endline "ok."; *)
 
   (* Context and Sequent Test *)
   let ctx = [("x", Imp (TVar "A", TVar "B")); ("y", And (TVar "A", TVar "B")); ("Z", True)] in
@@ -506,9 +506,10 @@ let () =
           | _ -> failwith "Cannot eliminate: not an implication of the right form")
       | "cut" ->
         let a' = ty_of_string arg in
-        let q = prove env (Imp(a', a)) in
-        let p = prove env a' in
+        let q = prove_with_file env (Imp(a', a)) in
+        let p = prove_with_file env a' in
         App(q, p)
+
       | cmd -> failwith ("Unknown command: " ^ cmd)
     with End_of_file -> failwith "Unexpected end of file"
   in
