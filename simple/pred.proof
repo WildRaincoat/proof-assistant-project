@@ -1,0 +1,6 @@
+intro x
+elim x
+exact Zero
+intro n
+intro p
+exact n

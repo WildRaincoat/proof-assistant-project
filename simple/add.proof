@@ -1,0 +1,7 @@
+intro m
+elim m
+intro n
+exact n
+intro p
+intro r
+exact (Succ r)

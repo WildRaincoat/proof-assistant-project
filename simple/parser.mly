@@ -9,6 +9,12 @@ open Expr
 %token <string> IDENT
 %token EOF
 
+%token NAT
+%token ZERO
+%token SUCC
+%token REC
+
+
 %right IMP
 %right OR
 %right AND
@@ -30,6 +36,7 @@ ty:
   | TRUE         { True }
   | FALSE        { False }
   | LPAR ty RPAR { $2 }
+  | NAT          { Nat }
 
 /* A term */
 tm:
@@ -53,3 +60,6 @@ stm:
   | LEFT LPAR tm COMMA ty RPAR   { Inl ($3, $5) }
   | RIGHT LPAR ty COMMA tm RPAR  { Inr ($5, $3) }
   | ABSURD LPAR tm COMMA ty RPAR { Absurd ($3, $5) }
+  | ZERO                         { Zero }         
+  | SUCC LPAR tm RPAR            { Succ($3) }  
+  | REC LPAR tm COMMA tm COMMA tm RPAR { Rec($3, $5, $7) } 

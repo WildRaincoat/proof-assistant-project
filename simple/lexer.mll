@@ -40,3 +40,7 @@ rule token = parse
   | space+ { token lexbuf }
   | "\n" { new_line lexbuf; token lexbuf }
   | eof { EOF }
+  | "Nat"      { NAT }
+  | "zero"     { ZERO }
+  | "succ"     { SUCC }
+  | "rec"      { REC }

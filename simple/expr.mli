@@ -9,6 +9,7 @@ type ty =
   | Or of ty * ty
   | True
   | False
+  | Nat
 
 type tm =
   | Var of var
@@ -23,3 +24,6 @@ type tm =
   | Tru
   | Fls
   | Absurd of tm * ty
+  | Zero               (* 新增：表示0 *)
+  | Succ of tm         (* 新增：表示后继 *)
+  | Rec of tm * tm * tm (* 新增：递归。通常为 Rec(n, base, step) *)

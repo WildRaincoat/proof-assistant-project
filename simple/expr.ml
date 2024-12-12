@@ -11,6 +11,7 @@ type ty =
   | Or of ty * ty     
   | True              
   | False            
+  | Nat
 
 
 (*1.2*)
@@ -26,4 +27,8 @@ type tm =
   | Case of tm * (var * tm) * (var * tm)  
   | Tru                      
   | Fls                       
-  | Absurd of tm * ty         
+  | Absurd of tm * ty       
+  (*33.1*)  
+  | Zero             
+  | Succ of tm       
+  | Rec of tm * tm * tm 

@@ -47,6 +47,7 @@ let rec string_of_ty t =
   | Or (t1, t2) -> "(" ^ string_of_ty t1 ^ " ∨ " ^ string_of_ty t2 ^ ")"
   | True -> "⊤"
   | False -> "⊥"
+  | Nat -> "Nat"
 
 
 let rec string_of_tm t =
@@ -66,6 +67,9 @@ let rec string_of_tm t =
   | Tru -> "true"
   | Fls -> "false"
   | Absurd (tm, ty) -> "(absurd " ^ string_of_tm tm ^ " : " ^ string_of_ty ty ^ ")"
+  | Zero -> "0"
+  | Succ tm -> "(succ " ^ string_of_tm tm ^ ")"
+  | Rec (t, b, s) -> "(rec " ^ string_of_tm t ^ " " ^ string_of_tm b ^ " " ^ string_of_tm s ^ ")"
 
 let () =
   let ty_example = Imp(Imp(TVar "A", TVar "B"), Imp(TVar "A", TVar "C")) in
@@ -190,6 +194,20 @@ let rec infer_type (ctx: context) (t: tm) : ty =
       (match infer_type ctx t with
       | False -> ty
       | _ -> raise Type_error)
+  | Zero -> Nat  (* 零值的类型为 Nat *)
+
+  | Succ t -> 
+    if infer_type ctx t = Nat then Nat
+    else raise Type_error  (* 验证操作数类型为 Nat *)
+
+  | Rec (t1, t2, t3) ->
+    let ty_t1 = infer_type ctx t1 in
+    if ty_t1 <> Nat then raise Type_error;  (* 确保第一个参数是 Nat *)
+    let ty_t2 = infer_type ctx t2 in
+    (match infer_type ctx t3 with
+     | Imp (Nat, Imp (ty_b, ty_r)) when ty_b = ty_t2 && ty_r = ty_t2 -> ty_t2
+     | _ -> raise Type_error)
+
 
 
 
@@ -275,6 +293,20 @@ let rec check_type (ctx: context) (t: tm) (expected_ty: ty) : unit =
       (match inferred_ty with
       | False -> ()
       | _ -> raise Type_error)
+  | Zero ->
+    if expected_ty <> Nat then raise Type_error
+  | Succ t ->
+    check_type ctx t Nat;
+    if expected_ty <> Nat then raise Type_error
+  | Rec (t, base, step) ->
+    check_type ctx t Nat;
+    let ty_base = infer_type ctx base in
+    let ty_step = infer_type ctx step in
+    (match ty_step with
+     | Imp(n, Imp(b1, b2)) when n = Nat && b1 = ty_base && b2 = ty_base ->
+         if expected_ty <> ty_base then raise Type_error
+     | _ -> raise Type_error)
+
 
 
 let () =
@@ -446,6 +478,11 @@ let rec prove env a =
             let ctx_b = (x, b) :: env in
             let t_b = prove ctx_b b in
             Case (Var x, (x, t_a), (x, t_b))
+        | Nat -> (
+          (* Recursion: Prove base case and step case *)
+          let base_case = prove env a in
+          let step_case = prove env (Imp(Nat, Imp(a, a))) in
+          Rec(Var x, base_case, step_case))
         | _ -> error "Cannot eliminate: variable is not a disjunction."
       with Not_found -> error "Variable not found in context."
     )
@@ -543,3 +580,36 @@ let () =
   print_string "Typechecking... "; flush_all ();
   assert (infer_type [] t = a);
   print_endline "ok.";
+
+  let natural_tests = [
+  ("Zero", Zero);
+  ("Succ Zero", Succ Zero);
+  ("Succ (Succ Zero)", Succ (Succ Zero));
+  ("Rec Zero Zero (fun (n: Nat) -> (fun (r: Nat) -> r))", 
+      Rec (Zero, Zero, Abs ("n", Nat, Abs ("r", Nat, Var "r"))))
+] in
+  List.iter (fun (desc, term) ->
+    try
+      let ty = infer_type [] term in
+      Printf.printf "Test %s passed: %s\n" desc (string_of_ty ty)
+    with Type_error ->
+      Printf.printf "Test %s failed\n" desc
+  ) natural_tests
+
+
+  let () =
+  let pred_test =
+    Abs("x", Nat,
+      Rec(Var "x", Zero, Abs("n", Nat, Abs("p", Nat, Var "p"))))
+  in
+  assert (infer_type [] pred_test = Imp(Nat, Nat));
+  print_endline "pred test passed.";
+  
+  let add_test =
+    Abs("m", Nat, 
+      Abs("n", Nat, 
+        Rec(Var "m", Var "n", Abs("p", Nat, Abs("r", Nat, Succ(Var "r"))))))
+  in
+  assert (infer_type [] add_test = Imp(Nat, Imp(Nat, Nat)));
+  print_endline "add test passed.";
+  
