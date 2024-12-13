@@ -175,6 +175,9 @@ let rec alpha (expr1 : expr) (expr2 : expr) : bool =
       alpha p1 p2 && alpha r1 r2 && alpha x1 x2 && alpha y1 y2 && alpha eq1 eq2
   | _ -> false
 
+let conv (ctx : context) (e1 : expr) (e2 : expr) : bool =
+  alpha (normalize ctx e1) (normalize ctx e2)
+
 
 
 (* 测试代码 *)
@@ -219,7 +222,7 @@ let () =
   let expr = App (Abs ("x", Type, Var "x"), Z) in
   let normalized_expr = normalize ctx expr in
   print_endline ("Normalized: " ^ to_string normalized_expr);
-
+  (*5.7*)
   let expr1 = Abs ("x", Type, Var "x") in
   let expr2 = Abs ("y", Type, Var "y") in
   let result = alpha expr1 expr2 in
@@ -229,3 +232,25 @@ let () =
   let expr4 = Pi ("y", Type, Var "y") in
   let result2 = alpha expr3 expr4 in
   Printf.printf "Are the expressions α-convertible? %b\n" result2;
+
+(* 测试 conv 函数 *)
+
+  (* 首先定义 conv 函数： *)
+  let conv (ctx : context) (e1 : expr) (e2 : expr) : bool =
+    alpha (normalize ctx e1) (normalize ctx e2)
+  in
+
+  let ctx = [] in
+
+  (* 5.8 *)
+  let e1 = Abs("x", Type, Var "x") in
+  let e2 = Abs("y", Type, Var "y") in
+  Printf.printf "Test 1: %b (it's indeed true)\n" (conv ctx e1 e2);
+
+  let e3 = App(Abs("x", Type, Var "x"), Z) in
+  let e4 = Z in
+  Printf.printf "Test 2: %b (also true)\n" (conv ctx e3 e4);
+
+  let e5 = Abs("x", Type, Var "x") in
+  let e6 = Abs("x", Type, S(Var "x")) in
+  Printf.printf "Test 3: %b (not true)\n" (conv ctx e5 e6);
