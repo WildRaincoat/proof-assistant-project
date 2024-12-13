@@ -2,4 +2,6 @@
 (ocamlyacc parser)
 (executable
  (name prover)
-)
+ (modules expr lexer parser prover)
+ (libraries menhirLib)
+ )
