@@ -147,7 +147,8 @@ let rec normalize (ctx : context) (e : expr) : expr =
   | Ind (p, z, s, S n') ->
       let step_case = App (App (s, n'), Ind (p, z, s, n')) in
       normalize ctx step_case
-  (*5-12*)
+  (*5-12ends*)
+  
   | Eq (e1, e2) ->
       let n1 = normalize ctx e1 in
       let n2 = normalize ctx e2 in
@@ -155,7 +156,7 @@ let rec normalize (ctx : context) (e : expr) : expr =
   | Refl e ->
       let n = normalize ctx e in
       Refl n
-  | J (p, r, x, y, eq) ->
+  (* | J (p, r, x, y, eq) ->
       let n_p = normalize ctx p in
       let n_r = normalize ctx r in
       let n_x = normalize ctx x in
@@ -163,7 +164,18 @@ let rec normalize (ctx : context) (e : expr) : expr =
       let n_eq = normalize ctx eq in
       (match n_eq with
        | Refl v when n_x = v && n_y = v -> n_r
-       | _ -> J (n_p, n_r, n_x, n_y, n_eq))
+       | _ -> J (n_p, n_r, n_x, n_y, n_eq)) *)
+    (*5.13*)
+  | J (p, r, x, y, eq) -> (
+      let n_p = normalize ctx p in
+      let n_r = normalize ctx r in
+      let n_x = normalize ctx x in
+      let n_y = normalize ctx y in
+      let n_eq = normalize ctx eq in
+      match n_eq with
+      | Refl v when n_x = v && n_y = v -> App (n_r, n_x)
+      | _ -> J (n_p, n_r, n_x, n_y, n_eq)
+    )
 
   | _ -> e 
 
@@ -252,7 +264,7 @@ let rec infer (ctx : context) (e : expr) : expr =
       | _ -> raise (Type_error "P is not a dependent type in Ind")
     )
   (* 相等类型规则 *)
-  | Eq (a, b) ->
+  (* | Eq (a, b) ->
       let ty_a = infer ctx a in
       let ty_b = infer ctx b in
       if conv ctx ty_a ty_b then Type
@@ -273,7 +285,33 @@ let rec infer (ctx : context) (e : expr) : expr =
       if not (conv ctx ty_eq (Eq (ty_x, ty_y))) then
         raise (Type_error "J: Equality type mismatch");
 
-      ty_r
+      ty_r *)
+    (*5.13*)
+  | Eq (a, b) ->
+  let ty_a = infer ctx a in
+  let ty_b = infer ctx b in
+  if conv ctx ty_a ty_b then Type
+  else raise (Type_error "Equality type mismatch")
+  | Refl t ->
+      let _ = infer ctx t in
+      Eq (t, t)
+  | J (p, r, x, y, eq) ->
+      let ty_p = infer ctx p in
+      let ty_r = infer ctx r in
+      let ty_x = infer ctx x in
+      let ty_y = infer ctx y in
+      let ty_eq = infer ctx eq in
+      (* 验证 p 的类型 *)
+      if not (conv ctx ty_p (Pi ("x", ty_x, Pi ("y", ty_y, Pi ("e", Eq (Var "x", Var "y"), Type))))) then
+        raise (Type_error "J: Invalid predicate type");
+      (* 验证 r 的类型 *)
+      if not (conv ctx ty_r (Pi ("x", ty_x, App (App (App (p, Var "x"), Var "x"), Refl (Var "x"))))) then
+        raise (Type_error "J: Invalid reflexivity case");
+      (* 验证等式类型 *)
+      if not (conv ctx ty_eq (Eq (x, y))) then
+        raise (Type_error "J: Equality type mismatch");
+      (* 返回类型 *)
+      App (App (App (p, x), y), eq
     )
 
 
@@ -286,7 +324,7 @@ let check (ctx : context) (e : expr) (expected_ty : expr) : unit =
        " does not match expected type " ^ to_string expected_ty))
 
 (*5-11*)
-let () =
+(* let () =
   let env = ref [] in
   let loop = ref true in
   let file = open_out "interactive.proof" in
@@ -344,7 +382,7 @@ let () =
     | Type_error err -> print_endline ("Typing error :"^err^".")
     | Parsing.Parse_error -> print_endline ("Parsing error.")
   done;
-  print_endline "Bye."
+  print_endline "Bye." *)
 
 (*5.12*)
 let pred (n : expr) : expr =
@@ -491,3 +529,24 @@ let () =
 (* 5.12 *)
   assert (normalize [] (add (S (S (S Z))) (S (S Z))) = S (S (S (S (S Z)))));
   print_endline "Test add (S (S (S Z))) (S (S Z)) passed.";
+
+
+(*5.13*)
+  let eq_refl = Refl (Var "x") in
+  let ctx = [("x", (Type, None))] in
+  let inferred_type = infer ctx eq_refl in
+  Printf.printf "Type of Refl(x): %s\n" (to_string inferred_type);
+
+  let eq_test = Eq (Var "x", Var "x") in
+  let inferred_eq_type = infer ctx eq_test in
+  Printf.printf "Type of Eq(x, x): %s\n" (to_string inferred_eq_type);
+
+  let p = Abs ("x", Type, Abs ("y", Type, Abs ("e", Eq (Var "x", Var "y"), Type))) in
+  let r = Abs ("x", Type, App (App (App (p, Var "x"), Var "x"), Refl (Var "x"))) in
+  let j_test = J (p, r, Var "x", Var "x", Refl (Var "x")) in
+  let inferred_j_type = infer ctx j_test in
+  Printf.printf "Type of J(p, r, x, x, Refl(x)): %s\n" (to_string inferred_j_type);
+  
+  let normalized_j = normalize ctx j_test in
+  Printf.printf "Normalized J: %s\n" (to_string normalized_j);
+  
