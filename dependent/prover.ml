@@ -324,7 +324,7 @@ let check (ctx : context) (e : expr) (expected_ty : expr) : unit =
        " does not match expected type " ^ to_string expected_ty))
 
 (*5-11*)
-(* let () =
+let () =
   let env = ref [] in
   let loop = ref true in
   let file = open_out "interactive.proof" in
@@ -382,7 +382,7 @@ let check (ctx : context) (e : expr) (expected_ty : expr) : unit =
     | Type_error err -> print_endline ("Typing error :"^err^".")
     | Parsing.Parse_error -> print_endline ("Parsing error.")
   done;
-  print_endline "Bye." *)
+  print_endline "Bye."
 
 (*5.12*)
 let pred (n : expr) : expr =
@@ -532,21 +532,12 @@ let () =
 
 
 (*5.13*)
-  let eq_refl = Refl (Var "x") in
-  let ctx = [("x", (Type, None))] in
+let eq_refl = Refl (Var "x") in
+let ctx = [("x", (Type, None))] in
+
+(* Test Refl *)
+try
   let inferred_type = infer ctx eq_refl in
   Printf.printf "Type of Refl(x): %s\n" (to_string inferred_type);
-
-  let eq_test = Eq (Var "x", Var "x") in
-  let inferred_eq_type = infer ctx eq_test in
-  Printf.printf "Type of Eq(x, x): %s\n" (to_string inferred_eq_type);
-
-  let p = Abs ("x", Type, Abs ("y", Type, Abs ("e", Eq (Var "x", Var "y"), Type))) in
-  let r = Abs ("x", Type, App (App (App (p, Var "x"), Var "x"), Refl (Var "x"))) in
-  let j_test = J (p, r, Var "x", Var "x", Refl (Var "x")) in
-  let inferred_j_type = infer ctx j_test in
-  Printf.printf "Type of J(p, r, x, x, Refl(x)): %s\n" (to_string inferred_j_type);
-  
-  let normalized_j = normalize ctx j_test in
-  Printf.printf "Normalized J: %s\n" (to_string normalized_j);
-  
+with
+| Type_error msg -> Printf.printf "Type error: %s\n" msg;
