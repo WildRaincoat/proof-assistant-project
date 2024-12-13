@@ -132,7 +132,7 @@ let rec normalize (ctx : context) (e : expr) : expr =
       let n_ty = normalize ctx ty in
       let n_body = normalize ctx body in
       Pi (x, n_ty, n_body)
-  | Ind (p, z, s, n) ->
+  (* | Ind (p, z, s, n) ->
       let n_p = normalize ctx p in
       let n_z = normalize ctx z in
       let n_s = normalize ctx s in
@@ -140,7 +140,14 @@ let rec normalize (ctx : context) (e : expr) : expr =
       (match n_n with
        | Z -> n_z
        | S pred -> normalize ctx (App (App (n_s, pred), normalize ctx (Ind (n_p, n_z, n_s, pred))))
-       | _ -> Ind (n_p, n_z, n_s, n_n))
+       | _ -> Ind (n_p, n_z, n_s, n_n)) *)
+  (*5-12*)
+  | Ind (_, z, _, Z) ->
+      normalize ctx z
+  | Ind (p, z, s, S n') ->
+      let step_case = App (App (s, n'), Ind (p, z, s, n')) in
+      normalize ctx step_case
+  (*5-12*)
   | Eq (e1, e2) ->
       let n1 = normalize ctx e1 in
       let n2 = normalize ctx e2 in
@@ -157,6 +164,7 @@ let rec normalize (ctx : context) (e : expr) : expr =
       (match n_eq with
        | Refl v when n_x = v && n_y = v -> n_r
        | _ -> J (n_p, n_r, n_x, n_y, n_eq))
+
   | _ -> e 
 
 (* 5.7 *)
@@ -338,6 +346,19 @@ let () =
   done;
   print_endline "Bye."
 
+(*5.12*)
+let pred (n : expr) : expr =
+  match n with
+  | Z -> Z 
+  | S n' -> n' 
+  | _ -> raise (Type_error "pred expects a Nat")
+
+let rec add (n1 : expr) (n2 : expr) : expr =
+  match n1 with
+  | Z -> n2 
+  | S n' -> S (add n' n2) 
+  | _ -> raise (Type_error "add expects Nat arguments")
+
 (* 测试代码 *)
 let () =
   let expr_example = 
@@ -461,3 +482,12 @@ let () =
    with Type_error msg ->
      print_endline ("Test case 3 failed: " ^ msg));
 
+(* 5-12 *)
+  assert (normalize [] (pred Z) = Z);
+  print_endline "Test pred Z passed.";
+  assert (normalize [] (pred (S (S (S Z)))) = S (S Z));
+  print_endline "Test pred (S (S (S Z))) passed.";
+
+(* 5.12 *)
+  assert (normalize [] (add (S (S (S Z))) (S (S Z))) = S (S (S (S (S Z)))));
+  print_endline "Test add (S (S (S Z))) (S (S Z)) passed.";
