@@ -103,6 +103,79 @@ let string_of_context (ctx : context) : string =
   in
   String.concat "\n" (List.map string_of_binding ctx)
 
+(* 5.6 *)
+let rec normalize (ctx : context) (e : expr) : expr =
+  match e with
+  | Var x -> (
+      match List.assoc_opt x ctx with
+      | Some (_, Some value) -> normalize ctx value
+      | _ -> Var x
+    )
+  | App (e1, e2) ->
+      let n1 = normalize ctx e1 in
+      let n2 = normalize ctx e2 in
+      (match n1 with
+       | Abs (x, _, body) -> normalize ((x, (Type, Some n2)) :: ctx) body
+       | _ -> App (n1, n2))
+  | Abs (x, ty, body) ->
+      let n_ty = normalize ctx ty in
+      let n_body = normalize ctx body in
+      Abs (x, n_ty, n_body)
+  | Pi (x, ty, body) ->
+      let n_ty = normalize ctx ty in
+      let n_body = normalize ctx body in
+      Pi (x, n_ty, n_body)
+  | Ind (p, z, s, n) ->
+      let n_p = normalize ctx p in
+      let n_z = normalize ctx z in
+      let n_s = normalize ctx s in
+      let n_n = normalize ctx n in
+      (match n_n with
+       | Z -> n_z
+       | S pred -> normalize ctx (App (App (n_s, pred), normalize ctx (Ind (n_p, n_z, n_s, pred))))
+       | _ -> Ind (n_p, n_z, n_s, n_n))
+  | Eq (e1, e2) ->
+      let n1 = normalize ctx e1 in
+      let n2 = normalize ctx e2 in
+      Eq (n1, n2)
+  | Refl e ->
+      let n = normalize ctx e in
+      Refl n
+  | J (p, r, x, y, eq) ->
+      let n_p = normalize ctx p in
+      let n_r = normalize ctx r in
+      let n_x = normalize ctx x in
+      let n_y = normalize ctx y in
+      let n_eq = normalize ctx eq in
+      (match n_eq with
+       | Refl v when n_x = v && n_y = v -> n_r
+       | _ -> J (n_p, n_r, n_x, n_y, n_eq))
+  | _ -> e 
+
+(* 5.7 *)
+let rec alpha (expr1 : expr) (expr2 : expr) : bool =
+  match (expr1, expr2) with
+  | (Type, Type) -> true
+  | (Var x, Var y) -> x = y
+  | (App (e1, e2), App (e3, e4)) ->
+      alpha e1 e3 && alpha e2 e4
+  | (Abs (x, t1, e1), Abs (y, t2, e2))
+  | (Pi (x, t1, e1), Pi (y, t2, e2)) ->
+      let new_var = fresh_var () in
+      alpha t1 t2
+      && alpha (subst x (Var new_var) e1) (subst y (Var new_var) e2)
+  | (Nat, Nat) -> true
+  | (Z, Z) -> true
+  | (S e1, S e2) -> alpha e1 e2
+  | (Ind (p1, z1, s1, n1), Ind (p2, z2, s2, n2)) ->
+      alpha p1 p2 && alpha z1 z2 && alpha s1 s2 && alpha n1 n2
+  | (Eq (e1, e2), Eq (e3, e4)) -> alpha e1 e3 && alpha e2 e4
+  | (Refl e1, Refl e2) -> alpha e1 e2
+  | (J (p1, r1, x1, y1, eq1), J (p2, r2, x2, y2, eq2)) ->
+      alpha p1 p2 && alpha r1 r2 && alpha x1 x2 && alpha y1 y2 && alpha eq1 eq2
+  | _ -> false
+
+
 
 (* 测试代码 *)
 let () =
@@ -136,3 +209,23 @@ let () =
     ("z", (Pi ("x", Type, Var "x"), None))  (* z : Π (x : Type) -> x *)
   ] in
   print_endline (string_of_context test_context);
+
+  let ctx : context = [
+    ("x", (Type, None));
+    ("y", (Var "x", Some (App (Var "x", Z))));
+    ("z", (Pi ("x", Type, Var "x"), None))
+  ] in
+
+  let expr = App (Abs ("x", Type, Var "x"), Z) in
+  let normalized_expr = normalize ctx expr in
+  print_endline ("Normalized: " ^ to_string normalized_expr);
+
+  let expr1 = Abs ("x", Type, Var "x") in
+  let expr2 = Abs ("y", Type, Var "y") in
+  let result = alpha expr1 expr2 in
+  Printf.printf "Are the expressions α-convertible? %b\n" result;
+
+  let expr3 = Pi ("x", Type, Var "x") in
+  let expr4 = Pi ("y", Type, Var "y") in
+  let result2 = alpha expr3 expr4 in
+  Printf.printf "Are the expressions α-convertible? %b\n" result2;
