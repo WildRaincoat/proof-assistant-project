@@ -20,6 +20,9 @@ type expr =
 
 (*5.5*)
 type context = (var * (expr * expr option)) list
+(*5.9*)
+exception Type_error of string
+
 
 (* Fill me in! *)
 (* 5.1 *)
@@ -175,9 +178,100 @@ let rec alpha (expr1 : expr) (expr2 : expr) : bool =
       alpha p1 p2 && alpha r1 r2 && alpha x1 x2 && alpha y1 y2 && alpha eq1 eq2
   | _ -> false
 
+(*5.8*)
 let conv (ctx : context) (e1 : expr) (e2 : expr) : bool =
   alpha (normalize ctx e1) (normalize ctx e2)
 
+(*5.9*)
+let rec infer (ctx : context) (e : expr) : expr =
+  match e with
+  (* 基础类型 *)
+  | Type -> Type
+  | Var x -> (
+      match List.assoc_opt x ctx with
+      | Some (ty, _) -> ty
+      | None -> raise (Type_error ("Unbound variable: " ^ x))
+    )
+  (* 应用规则 *)
+  | App (e1, e2) -> (
+      match infer ctx e1 with
+      | Pi (x, ty1, ty2) ->
+          let ty_e2 = infer ctx e2 in
+          if conv ctx ty1 ty_e2 then subst x e2 ty2
+          else raise (Type_error "Function argument type mismatch")
+      | _ -> raise (Type_error "Trying to apply a non-function")
+    )
+  (* 抽象规则 *)
+  | Abs (x, ty, body) ->
+      let ctx' = (x, (ty, None)) :: ctx in
+      let ty_body = infer ctx' body in
+      Pi (x, ty, ty_body)
+  (* 依赖类型规则 *)
+  | Pi (x, ty1, ty2) ->
+      let ty1' = infer ctx ty1 in
+      let ctx' = (x, (ty1, None)) :: ctx in
+      let ty2' = infer ctx' ty2 in
+      if conv ctx ty1' Type && conv ctx ty2' Type then Type
+      else raise (Type_error "Ill-formed Pi type")
+  (* 自然数规则 *)
+  | Nat -> Type
+  | Z -> Nat
+  | S n -> 
+      let ty_n = infer ctx n in
+      if conv ctx ty_n Nat then Nat
+      else raise (Type_error "S applied to non-Nat")
+  | Ind (p, z, s, n) -> (
+      match infer ctx p with
+      | Pi ("x", Nat, Type) -> (
+          let ty_z = infer ctx z in
+          if not (conv ctx ty_z (App (p, Z))) then
+            raise (Type_error "Zero case mismatch in Ind");
+
+          let ty_s = infer ctx s in
+          if not (conv ctx ty_s (Pi ("x", Nat, Pi ("y", App (p, Var "x"), App (p, S (Var "x")))))) then
+            raise (Type_error "Successor case mismatch in Ind");
+
+          let ty_n = infer ctx n in
+          if not (conv ctx ty_n Nat) then
+            raise (Type_error "Ind applied to non-Nat");
+
+          App (p, n)
+        )
+      | _ -> raise (Type_error "P is not a dependent type in Ind")
+    )
+  (* 相等类型规则 *)
+  | Eq (a, b) ->
+      let ty_a = infer ctx a in
+      let ty_b = infer ctx b in
+      if conv ctx ty_a ty_b then Type
+      else raise (Type_error "Equality type mismatch")
+  | Refl a ->
+      let ty_a = infer ctx a in
+      ty_a
+  | J (p, r, x, y, eq) -> (
+      let ty_p = infer ctx p in
+      let ty_r = infer ctx r in
+      let ty_x = infer ctx x in
+      let ty_y = infer ctx y in
+      let ty_eq = infer ctx eq in
+
+      if not (conv ctx ty_p Type) then
+        raise (Type_error "J: P is not a type");
+
+      if not (conv ctx ty_eq (Eq (ty_x, ty_y))) then
+        raise (Type_error "J: Equality type mismatch");
+
+      ty_r
+    )
+
+
+(* 5.10: Type checking *)
+let check (ctx : context) (e : expr) (expected_ty : expr) : unit =
+  let inferred_ty = infer ctx e in
+  if not (conv ctx inferred_ty expected_ty) then
+    raise (Type_error
+      ("Type mismatch: inferred type " ^ to_string inferred_ty ^
+       " does not match expected type " ^ to_string expected_ty))
 
 
 (* 测试代码 *)
@@ -254,3 +348,52 @@ let () =
   let e5 = Abs("x", Type, Var "x") in
   let e6 = Abs("x", Type, S(Var "x")) in
   Printf.printf "Test 3: %b (not true)\n" (conv ctx e5 e6);
+  (*5.9*)
+  let ctx = [
+    ("x", (Type, None));
+    ("y", (Var "x", None));
+  ] in
+
+  let e1 = App (Abs ("x", Type, Var "x"), Type) in
+  let e2 = Pi ("x", Type, Var "x") in
+
+  try
+    let ty_e1 = infer ctx e1 in
+    let ty_e2 = infer ctx e2 in
+    print_endline ("Type of e1: " ^ to_string ty_e1);
+    print_endline ("Type of e2: " ^ to_string ty_e2);
+  with Type_error msg ->
+    print_endline ("Type error: " ^ msg)
+let () =
+  let ctx = [
+    ("x", (Type, None));
+    ("y", (Var "x", None));
+    ("f", (Pi ("z", Type, Var "z"), None));
+  ] in
+
+  (* 5.9 *)
+  let e1 = App (Abs ("x", Type, Var "x"), Type) in
+  let expected_ty1 = Type in
+  (try
+     check ctx e1 expected_ty1;
+     print_endline "Test case 1 passed: e1 has the expected type."
+   with Type_error msg ->
+     print_endline ("Test case 1 failed: " ^ msg));
+
+  (* not matched *)
+  let e2 = App (Var "f", Var "y") in
+  let expected_ty2 = Var "x" in
+  (try
+     check ctx e2 expected_ty2;
+     print_endline "Test case 2 passed: e2 has the expected type."
+   with Type_error msg ->
+     print_endline ("Test case 2 failed: " ^ msg));
+
+  let e3 = Var "y" in
+  let expected_ty3 = Var "x" in
+  (try
+     check ctx e3 expected_ty3;
+     print_endline "Test case 3 passed: e3 has the expected type."
+   with Type_error msg ->
+     print_endline ("Test case 3 failed: " ^ msg));
+
